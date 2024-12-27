@@ -2,6 +2,8 @@
 
 This repo contains a script that periodically generates BED files from MANE Select transcripts. The script produces several types of BED files, including exon, CDS, intron, and UTR BED files. Additionally, it generates a corrected BED file based on the exon BED file, with specific adjustments.
 
+**Actions:  Weekly GENCODE Version Check and Sync.**
+
 
 
 ## Features
@@ -27,10 +29,19 @@ A refined version of the exon BED file with the following adjustments:
 **Intersection Handling**: If genes have overlapping regions, the coordinates are adjusted to prioritize the region that appears first in the genome sequence. The corrected BED file ensures that there are no overlapping entries.
 
 
+
+## Format
+
+| #chrom | start |  end  | location | symbol |     refseq     |      ensembl      | strand |
+| :----: | :---: | :---: | :------: | :----: | :------------: | :---------------: | ------ |
+|  chr1  | 65565 | 65573 |    2     | OR4F5  | NM_001005484.2 | ENST00000641515.2 | +      |
+
+
+
+
 ## Link
 
 [Gencode](https://www.gencodegenes.org/)
 
 [NCBI MANE](https://www.ncbi.nlm.nih.gov/refseq/MANE/)
-
 
