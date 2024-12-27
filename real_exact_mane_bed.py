@@ -45,13 +45,10 @@ def get_ncbi_version():
 # 下载器
 def download_gencode_file(version, ncbi_version):
     path = 'database'
-    release_file = 'release.txt'
     version_change = False
-    db_version = "None"
-    with open(release_file, 'r') as f:
-        db_version = f.readline().strip()
+    current_version = os.getenv('CURRENT_VERSION', 'none')
     
-    if db_version != version:
+    if current_version != version:
         # 下载文件
         hg19_url = f'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/latest_release/GRCh37_mapping/gencode.v{version}lift37.annotation.gff3.gz'
         hg38_url = f'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/latest_release/gencode.v{version}.annotation.gff3.gz'
@@ -66,7 +63,7 @@ def download_gencode_file(version, ncbi_version):
         request.urlretrieve(transcript_match_file, os.path.join(path, 'ncbi.GRCh38.gff.gz'))
 
         # 下载完成后，改写release文件
-        with open(release_file, 'w') as f:
+        with open("release.txt", 'w') as f:
             f.write(version)
         version_change = True
     return version_change
@@ -344,7 +341,7 @@ def correct_start_end(df, cds_df):
         else:
             return int(chrom[3:])  # 提取 chr 后面的数字
 
-    # 按染色体和起始位置排序
+    # 按染色体和��始位置排序
     corrected_df["chromosome_order"] = corrected_df["#chrom"].apply(chromosome_key)
     corrected_df = corrected_df.sort_values(by=["chromosome_order", "start"])
 

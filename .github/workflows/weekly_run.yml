@@ -1,0 +1,72 @@
+name: Weekly Run and Commit
+
+on:
+  schedule:
+    # 每周日 UTC 时间 00:00 运行
+    - cron: '0 0 * * 0'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9' # 根据你的 Python 版本调整
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4 pandas
+
+      - name: Check version
+        id: version_check
+        run: |
+          if [ -f "release.txt" ]; then
+            CURRENT_VERSION=$(cat release.txt)
+            echo "CURRENT_VERSION=${CURRENT_VERSION}" >> $GITHUB_ENV
+          else
+            echo "CURRENT_VERSION=none" >> $GITHUB_ENV
+          fi
+
+      - name: Run Python script
+        id: run_script
+        env:
+          CURRENT_VERSION: ${{ env.CURRENT_VERSION }}
+        run: |
+          python real_exact_mane_bed.py
+          if [ -f "release.txt" ]; then
+            NEW_VERSION=$(cat release.txt)
+            echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
+          fi
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add .
+          if git diff --cached --quiet; then
+            echo "::set-output name=has_changes::false"
+          else
+            echo "::set-output name=has_changes::true"
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 添加根目录的文件
+          git add release.txt transcript.txt
+          
+          # 添加 GRCh37 和 GRCh38 文件夹下的所有更改
+          git add GRCh37/*
+          git add GRCh38/*
+          
+          git commit -m "Update to version ${{ env.NEW_VERSION }}"
+          git push
