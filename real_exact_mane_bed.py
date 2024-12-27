@@ -94,11 +94,14 @@ def mane_select_match_refseq_ensembl(ncbi_gtf, output_txt):
         o.write("#gene\trefseq\tensembl\n")
         for gene, info in transcript_dict.items():
             o.write(f"{gene}\t{info['refseq']}\t{info['ensembl']}\n")
+    
+    print("[Transcript] Done!")
 
 # 结果bed文件排序
 def sort_bed_and_filter(input_bed, output_bed):
     # 读取 BED 文件
     df = pd.read_csv(input_bed, sep="\t", header=0, low_memory=False)
+    print(df.head())
 
     # 过滤染色体，只保留 chr1-chr22, chrX, chrY
     valid_chromosomes = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
@@ -407,10 +410,14 @@ def main():
     gencode_version = get_gencode_version()
     ncbi_version = get_ncbi_version()
 
+    print("[Gencode Version]", gencode_version)
+    print("[NCBI Version]", ncbi_version)
+
     # 确保都成功获取
     version_update = False
     if gencode_version and ncbi_version:
         version_update = download_gencode_file(gencode_version, ncbi_version)
+        print("[Database] Download Done!")
 
     # 开始制作新的bed
     if version_update:
