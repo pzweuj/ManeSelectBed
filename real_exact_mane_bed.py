@@ -240,8 +240,10 @@ def all_bed_create(input_gtf, transcript, output_dir, basename):
                         os.path.join(output_dir, "Gencode." + basename + ".utr5.bed"),
                         os.path.join(output_dir, "Gencode." + basename + ".utr3.bed"))
     for bed in os.listdir(output_dir):
-        unsorted_bed = os.path.join(output_dir, bed)
-        sort_bed_and_filter(unsorted_bed, unsorted_bed)
+        if ".exon.bed" in bed or ".cds.bed" in bed or ".utr5.bed" in bed or ".utr3.bed" in bed:
+            unsorted_bed = os.path.join(output_dir, bed)
+            print("[Dealing]", unsorted_bed)
+            sort_bed_and_filter(unsorted_bed, unsorted_bed)
     create_intron_bed(os.path.join(output_dir, "Gencode." + basename + ".exon.bed"), os.path.join(output_dir, "Gencode." + basename + ".intron.bed"))
 
 
