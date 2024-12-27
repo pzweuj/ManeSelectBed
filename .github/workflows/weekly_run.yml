@@ -45,26 +45,22 @@ jobs:
             echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
           fi
 
-      - name: Check for changes
-        id: changes
+      - name: Check version difference
+        id: version_diff
         run: |
-          git add .
-          if git diff --cached --quiet; then
-            echo "::set-output name=has_changes::false"
+          if [ "${{ env.CURRENT_VERSION }}" = "${{ env.NEW_VERSION }}" ]; then
+            echo "::set-output name=has_new_version::false"
           else
-            echo "::set-output name=has_changes::true"
+            echo "::set-output name=has_new_version::true"
           fi
 
       - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
+        if: steps.version_diff.outputs.has_new_version == 'true'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 添加根目录的文件
           git add release.txt transcript.txt
-          
-          # 添加 GRCh37 和 GRCh38 文件夹下的所有更改
           git add GRCh37/*
           git add GRCh38/*
           
