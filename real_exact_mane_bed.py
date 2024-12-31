@@ -228,6 +228,9 @@ def create_intron_bed(exon_bed_file, intron_bed_file):
     with open(intron_bed_file, "w", encoding="utf-8") as f:
         f.write("#chrom\tstart\tend\tlocation\tsymbol\trefseq\tensembl\tstrand\n")
         for intron in intron_list:
+            # 不正确的不写入
+            if list(intron)[1] >= list(intron)[2]:
+                continue
             f.write("\t".join(map(str, intron)) + "\n")
 
 # 所有bed
