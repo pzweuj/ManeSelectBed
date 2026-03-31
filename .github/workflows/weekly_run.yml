@@ -4,7 +4,14 @@ on:
   schedule:
     # 每周日 UTC 时间 00:00 运行
     - cron: '0 0 * * 0'
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
+    # 允许手动触发
+    inputs:
+      force:
+        description: '强制运行（忽略版本检查）'
+        required: false
+        default: 'false'
+        type: boolean
 
 # 添加权限配置
 permissions:
@@ -43,7 +50,11 @@ jobs:
         env:
           CURRENT_VERSION: ${{ env.CURRENT_VERSION }}
         run: |
-          python real_exact_mane_bed.py
+          if [ "${{ inputs.force }}" = "true" ]; then
+            python real_exact_mane_bed.py --force
+          else
+            python real_exact_mane_bed.py
+          fi
           if [ -f "release.txt" ]; then
             NEW_VERSION=$(cat release.txt)
             echo "NEW_VERSION=${NEW_VERSION}" >> $GITHUB_ENV
@@ -52,10 +63,15 @@ jobs:
       - name: Check version difference
         id: version_diff
         run: |
-          if [ "${{ env.CURRENT_VERSION }}" = "${{ env.NEW_VERSION }}" ]; then
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "has_new_version=true" >> $GITHUB_OUTPUT
+            echo "force_mode=true" >> $GITHUB_OUTPUT
+          elif [ "${{ env.CURRENT_VERSION }}" = "${{ env.NEW_VERSION }}" ]; then
             echo "has_new_version=false" >> $GITHUB_OUTPUT
+            echo "force_mode=false" >> $GITHUB_OUTPUT
           else
             echo "has_new_version=true" >> $GITHUB_OUTPUT
+            echo "force_mode=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Commit and push changes
@@ -63,10 +79,14 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           git add release.txt transcript.txt
           git add GRCh37/*
           git add GRCh38/*
-          
-          git commit -m "Update to version ${{ env.NEW_VERSION }}"
+
+          if [ "${{ steps.version_diff.outputs.force_mode }}" = "true" ]; then
+            git commit -m "Force update (version ${{ env.NEW_VERSION }})"
+          else
+            git commit -m "Update to version ${{ env.NEW_VERSION }}"
+          fi
           git push

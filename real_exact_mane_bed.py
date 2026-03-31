@@ -12,6 +12,7 @@ import gzip
 from collections import defaultdict
 import csv
 import pandas as pd
+import argparse
 
 # 检索网站获取最新的转录本
 # https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/latest_release
@@ -388,6 +389,35 @@ def hard_filter(df, overlap):
     df.reset_index(drop=True, inplace=True)
     return df
 
+# 生成CNVkit target BED文件
+# CNVkit target BED格式: chrom, start, end, name
+# name格式: symbol|refseq|ensembl|exonnum|strand
+def create_cnvkit_target_bed(exon_bed_file, cnvkit_target_bed_file):
+    """
+    从exon BED文件生成CNVkit target BED文件。
+
+    参数:
+    exon_bed_file (str): 输入的exon BED文件路径。
+    cnvkit_target_bed_file (str): 输出的CNVkit target BED文件路径。
+    """
+    cnvkit_list = []
+
+    with open(exon_bed_file, "r") as f:
+        reader = csv.reader(f, delimiter="\t")
+        header = next(reader)  # 跳过标题行
+        for row in reader:
+            chrom, start, end, location, symbol, refseq, ensembl, strand = row
+            # 构建name: symbol|refseq|ensembl|exonnum|strand
+            name = f"{symbol}|{refseq}|{ensembl}|{location}|{strand}"
+            cnvkit_list.append((chrom, start, end, name))
+
+    # 输出CNVkit target BED文件（无标题）
+    with open(cnvkit_target_bed_file, "w", encoding="utf-8") as f:
+        for item in cnvkit_list:
+            f.write("\t".join(item) + "\n")
+
+    print(f"[CNVkit Target] Created: {cnvkit_target_bed_file}")
+
 # 校正脚本
 def correct_pipe(exon_bed, cds_bed, output_bed):
     input_df = read_bed(exon_bed)
@@ -411,6 +441,11 @@ def correct_pipe(exon_bed, cds_bed, output_bed):
 
 # 全流程
 def main():
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='生成MANE Select转录本BED文件')
+    parser.add_argument('--force', action='store_true', help='强制运行，忽略版本检查')
+    args = parser.parse_args()
+
     # 检查当前版本
     gencode_version = get_gencode_version()
     ncbi_version = get_ncbi_version()
@@ -418,24 +453,50 @@ def main():
     print("[Gencode Version]", gencode_version)
     print("[NCBI Version]", ncbi_version)
 
-    # 确保都成功获取
+    # 确定是否需要更新
     version_update = False
     if gencode_version and ncbi_version:
         version_update = download_gencode_file(gencode_version, ncbi_version)
         print("[Database] Download Done!")
 
-    # 开始制作新的bed
-    if version_update:
+    # 开始制作新的bed（版本更新或强制运行时执行）
+    if version_update or args.force:
+        if args.force and not version_update:
+            print("[Force Mode] 强制运行，忽略版本检查")
+            # 强制模式下仍需下载数据库文件
+            if gencode_version and ncbi_version:
+                import os
+                path = 'database'
+                if not os.path.exists(path):
+                    os.makedirs(path)
+                # 检查数据库文件是否存在，不存在则下载
+                hg19_file = os.path.join(path, 'gencode.GRCh37.annotation.gff3.gz')
+                hg38_file = os.path.join(path, 'gencode.GRCh38.annotation.gff3.gz')
+                ncbi_file = os.path.join(path, 'ncbi.GRCh38.gff.gz')
+                if not (os.path.exists(hg19_file) and os.path.exists(hg38_file) and os.path.exists(ncbi_file)):
+                    print("[Database] 下载数据库文件...")
+                    hg19_url = f'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/latest_release/GRCh37_mapping/gencode.v{gencode_version}lift37.annotation.gff3.gz'
+                    hg38_url = f'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/latest_release/gencode.v{gencode_version}.annotation.gff3.gz'
+                    transcript_match_file = f'https://ftp.ncbi.nlm.nih.gov/refseq/MANE/MANE_human/current/MANE.GRCh38.v{ncbi_version}.refseq_genomic.gff.gz'
+                    request.urlretrieve(hg19_url, hg19_file)
+                    request.urlretrieve(hg38_url, hg38_file)
+                    request.urlretrieve(transcript_match_file, ncbi_file)
+                    print("[Database] Download Done!")
+
         # 制作新的转录本对照表
         mane_select_match_refseq_ensembl("database/ncbi.GRCh38.gff.gz", "transcript.txt")
 
         # GRCh37
         all_bed_create("database/gencode.GRCh37.annotation.gff3.gz", "transcript.txt", "GRCh37", "GRCh37")
         correct_pipe("GRCh37/Gencode.GRCh37.exon.bed", "GRCh37/Gencode.GRCh37.cds.bed", "GRCh37/Gencode.GRCh37.exon.cor.bed")
-        
+        create_cnvkit_target_bed("GRCh37/Gencode.GRCh37.exon.cor.bed", "GRCh37/Gencode.GRCh37.cnvkit.target.bed")
+
         # GRCh38
         all_bed_create("database/gencode.GRCh38.annotation.gff3.gz", "transcript.txt", "GRCh38", "GRCh38")
         correct_pipe("GRCh38/Gencode.GRCh38.exon.bed", "GRCh38/Gencode.GRCh38.cds.bed", "GRCh38/Gencode.GRCh38.exon.cor.bed")
+        create_cnvkit_target_bed("GRCh38/Gencode.GRCh38.exon.cor.bed", "GRCh38/Gencode.GRCh38.cnvkit.target.bed")
+    else:
+        print("[Info] 无新版本，跳过生成。使用 --force 参数强制运行。")
 
 if __name__ == "__main__":
     main()
